@@ -3,20 +3,25 @@ import api, { route, routeFromAbsolute } from "@forge/api";
 
 export const run = async (event, context) => {
   
-  const workspaceId = context.workspaceId;
-  const repoId = context.extension.repository.uuid;
-  const prId = context.extension.pullRequest.id;
+  // console.log("Starting staging merge check");
+
+  const workspaceId = event.workspace.uuid;
+  const repoId = event.repository.uuid;
+  const prId = event.pullrequest.id;
 
   const pr = await getPullRequest(workspaceId, repoId, prId);
 
-  if (pr.destination.branch.name.toLower() === "staging") {
+  // console.log("Fetched pull request:", pr);
+
+  if (pr.destination.branch.name.toLowerCase() === "staging") {
     return {
       success: false,
       message: `Pull request #${event.pullrequest.id} is not ready to be merged.`
     };
   } else {
     return {
-      success: true
+      success: true,
+      message: `Pull request is ready to be merged.`
     };
   }
 };

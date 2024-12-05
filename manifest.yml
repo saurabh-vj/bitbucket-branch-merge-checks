@@ -1,5 +1,6 @@
 permissions:
   scopes:
+    - read:repository:bitbucket
     - read:pullrequest:bitbucket
 modules:
   bitbucket:mergeCheck:

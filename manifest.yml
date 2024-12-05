@@ -1,0 +1,18 @@
+permissions:
+  scopes:
+    - read:pullrequest:bitbucket
+modules:
+  bitbucket:mergeCheck:
+    - key: staging-merge-check
+      function: main
+      name: Staging merge check
+      description: Prevent staging merges when staging to master PR exists.
+      triggers:
+        - on-merge
+  function:
+    - key: main
+      handler: index.run
+app:
+  runtime:
+    name: nodejs20.x
+  id: ari:cloud:ecosystem::app/91cdbea7-e4d9-4633-a26e-12b9d1f169fe

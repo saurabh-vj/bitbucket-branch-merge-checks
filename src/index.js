@@ -3,27 +3,31 @@ import api, { route, routeFromAbsolute } from "@forge/api";
 
 export const run = async (event, context) => {
   
-  // console.log("Starting staging merge check");
-
   const workspaceId = event.workspace.uuid;
   const repoId = event.repository.uuid;
   const prId = event.pullrequest.id;
 
   const pr = await getPullRequest(workspaceId, repoId, prId);
 
-  // console.log("Fetched pull request:", pr);
-
-  if (pr.destination.branch.name.toLowerCase() === "staging") {
-    return {
-      success: false,
-      message: `Pull request #${event.pullrequest.id} is not ready to be merged.`
-    };
-  } else {
-    return {
-      success: true,
-      message: `Pull request is ready to be merged.`
-    };
+  // Check if the pull request is raised for staging and
+  // restrict it from merge if there is a pull request open for staging to master
+  if (pr.destination.branch.name.toLowerCase() === "staging" && pr.source.branch.name.toLowerCase() !== "main") {
+    const openPullRequests = await getOpenPullRequests(workspaceId, repoId);
+    if (openPullRequests && openPullRequests.findIndex(p => 
+      p.source.branch.name.toLowerCase() === "staging" &&
+      p.destination.branch.name.toLowerCase() === "main"
+    ) !== -1) {
+      return {
+        success: false,
+        message: `There is an open pull request from staging to master.`,
+      };
+    }
   }
+
+  return {
+    success: true,
+    message: "Pull request has passed staging check.",
+  };
 };
 
 const getPullRequest = async (workspaceId, repoId, prId) => {
@@ -36,23 +40,9 @@ const getPullRequest = async (workspaceId, repoId, prId) => {
   return res.json();
 };
 
-/**export const getPullRequestContainingIssueKeys = async (
-  workspaceId: string,
-  repoId: string,
-  prId: number,
-  issueKeys: RegExpMatchArray,
-): Promise<RelatedPullRequest[]> => {
-  // Note: Bitbucket filtering can only check the title contains the issue key, not whether the issue key is an exact match.
-  // E.g. if the issue key is "ABC-123", the title "ABC-1234" will also be matched.
-  const issueInTitleCondition = issueKeys
-    .map((key) => `title ~ "${key}"`)
-    .join(" OR ");
-  const query = `id!=${prId} AND (${issueInTitleCondition})`;
+export const getOpenPullRequests = async (workspaceId, repoId) => {
 
-  const relevantFields =
-    "next,values.id,values.title,values.state,values.links.html";
-
-  const apiRoute = route`/2.0/repositories/${workspaceId}/${repoId}/pullrequests?q=${query}&fields=${relevantFields}`;
+  const apiRoute = route`/2.0/repositories/${workspaceId}/${repoId}/pullrequests?state=OPEN`;
   let resp = await api.asApp().requestBitbucket(apiRoute);
   let result = await resp.json();
 
@@ -67,23 +57,3 @@ const getPullRequest = async (workspaceId, repoId, prId) => {
 
   return relatedPrs;
 };
-
-export const getRelatedPullRequests = async (
-  workspaceId: string,
-  repoId: string,
-  prId: number,
-  issueKeys: RegExpMatchArray,
-): Promise<RelatedPullRequest[]> => {
-  const prsContainingIssueKeys = await getPullRequestContainingIssueKeys(
-    workspaceId,
-    repoId,
-    prId,
-    issueKeys,
-  );
-
-  // Further filter down to only PRs that contain an exact match of any of the provided issue keys
-  const issueKeyPattern = new RegExp(`\\b(${issueKeys.join("|")})\\b`, "i");
-  return prsContainingIssueKeys.filter(
-    (pr) => !!pr.title.match(issueKeyPattern),
-  );
-};*/
